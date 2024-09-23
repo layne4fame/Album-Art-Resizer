@@ -1,15 +1,12 @@
 import subprocess
 import os
-
-
+import shutil
 from mutagen.mp3 import MP3
 from mutagen.id3 import ID3, APIC, ID3NoHeaderError
 from PIL import Image
 import io
-
 import tkinter as tk
 from tkinter import filedialog
-
 import eyed3
 from eyed3.id3.frames import ImageFrame
 
@@ -65,11 +62,12 @@ def extract_album_art(mp3_file, output_folder):
 
 
 def get_ffmpeg_path():
-   # Adjust path based on the current script location
    script_dir = os.path.dirname(os.path.abspath(__file__))
    return os.path.join(script_dir, 'ffmpeg\\bin\\ffmpeg.exe')  # For Windows
 
 
+# Not really a useful function now because of issues with converting an MP3 to AAC with album art meta-data
+# causing really big issues. May work further on it but isn't the ethos of the project
 def convert_mp3_to_aac(mp3_file, output_folder):
    try:
        ffmpeg_path = get_ffmpeg_path()  # Get the FFmpeg path
@@ -88,18 +86,23 @@ def resize_art(jpg):
    image = Image.open(jpg)
    new_image = image.resize((250, 250))
    new_image.save('tryagain.png', format='png')
-   print("test test")
 
 
 def select_folder():
     root = tk.Tk()
-    root.withdraw()  # Hide the root window
-    folder_path = filedialog.askdirectory()  # Open folder selection dialog
+    root.withdraw()
+    folder_path = filedialog.askdirectory()
     return folder_path
 
 
+def copy_album_to_output(album_path, output_album_path):
+    if not os.path.exists(output_album_path):
+        os.makedirs(output_album_path)  # Create output album folder if it doesn't exist
+    shutil.copytree(album_path, output_album_path, dirs_exist_ok=True)  # Copy album folder
+
+
 def process_songs_in_album(album_path):
-    # List all files in the album folder
+
     for filename in os.listdir(album_path):
         file_path = os.path.join(album_path, filename)
         if os.path.isfile(file_path):  # Check if it's a file
@@ -107,20 +110,23 @@ def process_songs_in_album(album_path):
             # Add your song processing logic here
 
 
-def process_albums_in_folder(albums_folder):
+def process_albums_in_folder(albums_folder, output_folder):
     # List all folders in the albums folder
     for album_name in os.listdir(albums_folder):
         album_path = os.path.join(albums_folder, album_name)
         if os.path.isdir(album_path):  # Check if it's a directory
-            print(f"Found album: {album_path}")
-            process_songs_in_album(album_path)
+            output_album_path = os.path.join(output_folder, album_name)
+            copy_album_to_output(album_path, output_album_path)
+            process_songs_in_album(output_album_path)
 
 
 if __name__ == "__main__":
 
    selected_folder = select_folder()
-   print(selected_folder)
-   process_albums_in_folder(selected_folder)
+   output_folder = selected_folder + 'OUTPUT'
+   if not os.path.exists(output_folder):
+       os.makedirs(output_folder)
+   process_albums_in_folder(selected_folder, output_folder)
 
 '''
    output_folder = 'new_folder'
