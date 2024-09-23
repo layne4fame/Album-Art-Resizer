@@ -22,38 +22,23 @@ def set_album_art(mp3_file_path, jpg_file):
 
 def extract_album_art(mp3_file, output_folder):
    try:
-       # Load the MP3 file
+
        audio = MP3(mp3_file, ID3=ID3)
-
-
-       # Check for ID3 tags
        if audio.tags is None:
            print("No ID3 tags found in the file.")
            return
 
-
-       # Find and save the album art
        for tag in audio.tags.values():
            if isinstance(tag, APIC):
-               # Load the album art into a PIL image
+
                image = Image.open(io.BytesIO(tag.data))
-
-
-               # Create output file path with .png extension
                output_file = os.path.join(output_folder,
                                           f"{os.path.splitext(os.path.basename(mp3_file))[0]}_cover.png")
-
-
-               # Save the image as PNG
                image.save(output_file, format='PNG')
-
-
                print(f"Album art saved as: {output_file}")
                return output_file
 
-
        print("No album art found in the file.")
-
 
    except ID3NoHeaderError:
        print("The MP3 file does not have ID3 tags.")
@@ -82,10 +67,13 @@ def convert_mp3_to_aac(mp3_file, output_folder):
        print(f"An error occurred: {e}")
 
 
-def resize_art(jpg):
+def resize_art(jpg, album_path):
    image = Image.open(jpg)
    new_image = image.resize((250, 250))
-   new_image.save('tryagain.png', format='png')
+   filename = 'current.png'
+   file_path = os.path.join(album_path, filename)
+   new_image.save(file_path, format='png')
+   return file_path
 
 
 def select_folder():
@@ -105,9 +93,12 @@ def process_songs_in_album(album_path):
 
     for filename in os.listdir(album_path):
         file_path = os.path.join(album_path, filename)
-        if os.path.isfile(file_path):  # Check if it's a file
-            print(f"Processing song: {file_path}")
-            # Add your song processing logic here
+        if os.path.isfile(file_path) and filename.lower().endswith('.mp3'):  # Check if it's a file
+            jpg = extract_album_art(file_path, album_path)
+            resized_jpg = resize_art(jpg, album_path)
+            set_album_art(file_path, resized_jpg)
+            os.remove(jpg)
+            os.remove(resized_jpg)
 
 
 def process_albums_in_folder(albums_folder, output_folder):
