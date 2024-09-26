@@ -21,13 +21,18 @@ class FolderSettings:
 
     def select_output_folder(self):
         self.output_folder = filedialog.askdirectory()
+        input_folder_text.set(self.output_folder)
         return
 
     def select_input_folder(self):
         self.input_folder = filedialog.askdirectory()
+        output_folder_text.set(self.input_folder)
         return
 
     def run_conversion(self):
+        self.input_folder = input_folder_text.get()
+        self.output_folder = output_folder_text.get()
+
         if not os.path.exists(self.output_folder):
             os.makedirs(self.output_folder)
         process_albums_in_folder(self.input_folder, self.output_folder)
@@ -130,9 +135,14 @@ def process_albums_in_folder(albums_folder, output_folder):
 
 
 if __name__ == "__main__":
-   print(type(Image))
    f = FolderSettings()
    root = Tk()
+   root.title("MP3 Album Art Resizer")
+   root.iconbitmap('MP3.ico')
+
+   input_folder_text = tk.StringVar()
+   output_folder_text = tk.StringVar()
+
    frm = tk.Frame(root, height=100, borderwidth=100)
    frm.grid()
    tk.Label(frm, text="Hello World!").grid(column=0, row=0)
@@ -140,25 +150,10 @@ if __name__ == "__main__":
    tk.Button(frm, text="Select Output Folder", command=f.select_output_folder).grid(column=1, row=2)
    tk.Button(frm, text="Convert Files", command=f.run_conversion).grid(column=1, row=3)
 
+   tk.Entry(frm, textvariable=input_folder_text, width=50).grid(column=0, row=1, columnspan=1)
+   tk.Entry(frm, textvariable=output_folder_text, width=50).grid(column=0, row=2, columnspan=1)
+
    root.mainloop()
-
-   '''
-   selected_folder = select_folder()
-   output_folder = selected_folder + 'OUTPUT'
-   if not os.path.exists(output_folder):
-       os.makedirs(output_folder)
-   process_albums_in_folder(selected_folder, output_folder)
-'''
-'''
-   output_folder = 'new_folder'
-   mp3_file_path = '03 - Spikes.mp3'  # Replace with your MP3 file path
-   jpg = extract_album_art(mp3_file_path, output_folder)
-   resize_art(jpg)
-
-   set_album_art(mp3_file_path, 'tryagain.png')
-   os.remove('tryagain.png')
-   print("test")
-'''
 
 
 
