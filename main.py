@@ -50,7 +50,7 @@ def extract_album_art(mp3_file, output_folder):
        for tag in audio.tags.values():
             if isinstance(tag, APIC):
 
-                image = Image.open(io.BytesIO(tag.data))
+                image = Image.open(io.BytesIO(tag))
                 output_file = os.path.join(output_folder,
                                f"{os.path.splitext(os.path.basename(mp3_file))[0]}_cover.png")
                 image.save(output_file, format='PNG')
@@ -74,7 +74,7 @@ def get_ffmpeg_path():
     # causing really big issues. May work further on it but isn't the ethos of the project
 def convert_mp3_to_aac(mp3_file, output_folder):
     try:
-        ffmpeg_path = self.get_ffmpeg_path()  # Get the FFmpeg path
+        ffmpeg_path = get_ffmpeg_path()  # Get the FFmpeg path
         output_file = os.path.join(output_folder, f"{os.path.splitext(os.path.basename(mp3_file))[0]}.m4a")
         command = [ffmpeg_path, "-i", mp3_file, "-map", "0:a", "-c:a", "aac", "-map_metadata", "-1", output_file]
         subprocess.run(command, check=True)
@@ -107,6 +107,8 @@ def process_songs_in_album(album_path):
     for filename in os.listdir(album_path):
         file_path = os.path.join(album_path, filename)
         if os.path.isfile(file_path) and filename.lower().endswith('.mp3'):  # Check if it's a file
+            print(file_path)
+            print(album_path)
             jpg = extract_album_art(file_path, album_path)
             print(jpg)
             resized_jpg = resize_art(jpg, album_path)
