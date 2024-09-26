@@ -143,22 +143,13 @@ if __name__ == "__main__":
    input_folder_text = tk.StringVar()
    output_folder_text = tk.StringVar()
 
-   frm = tk.Frame(root, height=100, borderwidth=100)
+   frm = tk.Frame(root, height=100, borderwidth=100, padx=10, pady=10)
    frm.grid()
-   tk.Label(frm, text="Hello World!").grid(column=0, row=0)
-   tk.Button(frm, text="Select Input Folder", command=f.select_input_folder).grid(column=1, row=1)
-   tk.Button(frm, text="Select Output Folder", command=f.select_output_folder).grid(column=1, row=2)
-   tk.Button(frm, text="Convert Files", command=f.run_conversion).grid(column=1, row=3)
+   tk.Button(frm, text="Select Input Folder", command=f.select_input_folder).grid(column=0, row=1, sticky='W', padx=(5,10))
+   tk.Button(frm, text="Select Output Folder", command=f.select_output_folder).grid(column=0, row=2, sticky='W', pady=(6, 0))
+   tk.Button(frm, text="Convert Files", command=f.run_conversion).grid(column=0, row=3, pady=(6, 0))
 
-   tk.Entry(frm, textvariable=input_folder_text, width=50).grid(column=0, row=1, columnspan=1)
-   tk.Entry(frm, textvariable=output_folder_text, width=50).grid(column=0, row=2, columnspan=1)
+   tk.Entry(frm, textvariable=input_folder_text, width=50).grid(column=1, row=1, columnspan=1)
+   tk.Entry(frm, textvariable=output_folder_text, width=50).grid(column=1, row=2, columnspan=1, pady=(6, 0))
 
    root.mainloop()
-
-
-
-
-
-
-
-
