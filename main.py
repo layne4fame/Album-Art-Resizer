@@ -3,15 +3,17 @@ import os
 import shutil
 from mutagen.mp3 import MP3
 from mutagen.id3 import ID3, APIC, ID3NoHeaderError
-from PIL import Image
 import io
 import tkinter as tk
 from tkinter import *
 from tkinter import filedialog
 import eyed3
 from eyed3.id3.frames import ImageFrame
+from PIL import Image
 
-class folderSettings:
+
+
+class FolderSettings:
 
     def __init__(self):
         self.output_folder = ''
@@ -50,10 +52,10 @@ def extract_album_art(mp3_file, output_folder):
        for tag in audio.tags.values():
             if isinstance(tag, APIC):
 
-                image = Image.open(io.BytesIO(tag))
+                im = Image.open(io.BytesIO(tag.data))
                 output_file = os.path.join(output_folder,
                                f"{os.path.splitext(os.path.basename(mp3_file))[0]}_cover.png")
-                image.save(output_file, format='PNG')
+                im.save(output_file, format='PNG')
                 print(f"Album art saved as: {output_file}")
                 return output_file
 
@@ -128,7 +130,8 @@ def process_albums_in_folder(albums_folder, output_folder):
 
 
 if __name__ == "__main__":
-   f = folderSettings()
+   print(type(Image))
+   f = FolderSettings()
    root = Tk()
    frm = tk.Frame(root, height=100, borderwidth=100)
    frm.grid()
