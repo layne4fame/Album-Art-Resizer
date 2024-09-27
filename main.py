@@ -1,173 +1,155 @@
-from mutagen.mp4 import MP4
-from mutagen.mp4 import MP4Cover
-from PIL import Image
-from io import BytesIO
-from mutagen.mp3 import MP3
-from mutagen.id3 import ID3, ID3NoHeaderError
-from mutagen.id3 import APIC
-import ffmpeg
 import subprocess
 import os
-
-
+import shutil
 from mutagen.mp3 import MP3
 from mutagen.id3 import ID3, APIC, ID3NoHeaderError
-from PIL import Image
 import io
-
-
+import tkinter as tk
+from tkinter import *
+from tkinter import filedialog
 import eyed3
 from eyed3.id3.frames import ImageFrame
+from PIL import Image
 
 
+
+class FolderSettings:
+
+    def __init__(self):
+        self.output_folder = ''
+        self.input_folder = ''
+
+    def select_output_folder(self):
+        self.output_folder = filedialog.askdirectory()
+        input_folder_text.set(self.output_folder)
+        return
+
+    def select_input_folder(self):
+        self.input_folder = filedialog.askdirectory()
+        output_folder_text.set(self.input_folder)
+        return
+
+    def run_conversion(self):
+        self.input_folder = input_folder_text.get()
+        self.output_folder = output_folder_text.get()
+
+        if not os.path.exists(self.output_folder):
+            os.makedirs(self.output_folder)
+        process_albums_in_folder(self.input_folder, self.output_folder)
 
 
 def set_album_art(mp3_file_path, jpg_file):
-   audiofile = eyed3.load(mp3_file_path)
-   if (audiofile.tag == None):
-       audiofile.initTag()
+    audiofile = eyed3.load(mp3_file_path)
+    if (audiofile.tag == None):
+        audiofile.initTag()
 
-
-   audiofile.tag.images.set(ImageFrame.FRONT_COVER, open(jpg_file,'rb').read(), 'image/jpeg')
-
-
-   audiofile.tag.save()
-
-
-'''
-def extract_album_art(mp3_file, output_folder):
-   try:
-       # Load the MP3 file
-       audio = MP3(mp3_file, ID3=ID3)
-
-
-       # Check for ID3 tags
-       if audio.tags is None:
-           print("No ID3 tags found in the file.")
-           return
-
-
-       # Find and save the album art
-       for tag in audio.tags.values():
-           if isinstance(tag, APIC):
-               # Create output file path
-               output_file = os.path.join(output_folder,
-                                          f"{os.path.splitext(os.path.basename(mp3_file))[0]}_cover.{tag.mime.split('/')[1]}")
-
-
-               # Write the album art to a file
-               with open(output_file, 'wb') as img_file:
-                   image = Image.open(io.BytesIO(tag.data))
-                   img_file.write(tag.data)
-
-
-               print(f"Album art saved as: {output_file}")
-               return output_file
-
-
-       print("No album art found in the file.")
-
-
-   except ID3NoHeaderError:
-       print("The MP3 file does not have ID3 tags.")
-   except Exception as e:
-       print(f"An error occurred: {e}")
-'''
-
-
+    audiofile.tag.images.set(ImageFrame.FRONT_COVER, open(jpg_file,'rb').read(), 'image/jpeg')
+    audiofile.tag.save()
 
 
 def extract_album_art(mp3_file, output_folder):
-   try:
-       # Load the MP3 file
+    try:
+
        audio = MP3(mp3_file, ID3=ID3)
-
-
-       # Check for ID3 tags
        if audio.tags is None:
-           print("No ID3 tags found in the file.")
-           return
-
-
-       # Find and save the album art
+            print("No ID3 tags found in the file.")
+            return
        for tag in audio.tags.values():
-           if isinstance(tag, APIC):
-               # Load the album art into a PIL image
-               image = Image.open(io.BytesIO(tag.data))
+            if isinstance(tag, APIC):
 
+                im = Image.open(io.BytesIO(tag.data))
+                output_file = os.path.join(output_folder,
+                               f"{os.path.splitext(os.path.basename(mp3_file))[0]}_cover.png")
+                im.save(output_file, format='PNG')
+                print(f"Album art saved as: {output_file}")
+                return output_file
 
-               # Create output file path with .png extension
-               output_file = os.path.join(output_folder,
-                                          f"{os.path.splitext(os.path.basename(mp3_file))[0]}_cover.png")
+        #print("No album art found in the file.")
 
-
-               # Save the image as PNG
-               image.save(output_file, format='PNG')
-
-
-               print(f"Album art saved as: {output_file}")
-               return output_file
-
-
-       print("No album art found in the file.")
-
-
-   except ID3NoHeaderError:
+    except ID3NoHeaderError:
        print("The MP3 file does not have ID3 tags.")
-   except Exception as e:
+    except Exception as e:
        print(f"An error occurred: {e}")
 
 
 def get_ffmpeg_path():
-   # Adjust path based on the current script location
-   script_dir = os.path.dirname(os.path.abspath(__file__))
-   return os.path.join(script_dir, 'ffmpeg\\bin\\ffmpeg.exe')  # For Windows
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    return os.path.join(script_dir, 'ffmpeg\\bin\\ffmpeg.exe')  # For Windows
 
 
-
-
+    # Not really a useful function now because of issues with converting an MP3 to AAC with album art meta-data
+    # causing really big issues. May work further on it but isn't the ethos of the project
 def convert_mp3_to_aac(mp3_file, output_folder):
-   try:
-       ffmpeg_path = get_ffmpeg_path()  # Get the FFmpeg path
-       output_file = os.path.join(output_folder, f"{os.path.splitext(os.path.basename(mp3_file))[0]}.m4a")
-       command = [ffmpeg_path, "-i", mp3_file, "-map", "0:a", "-c:a", "aac", "-map_metadata", "-1", output_file]
-       subprocess.run(command, check=True)
-       print(f"Converted {mp3_file} to {output_file}")
+    try:
+        ffmpeg_path = get_ffmpeg_path()  # Get the FFmpeg path
+        output_file = os.path.join(output_folder, f"{os.path.splitext(os.path.basename(mp3_file))[0]}.m4a")
+        command = [ffmpeg_path, "-i", mp3_file, "-map", "0:a", "-c:a", "aac", "-map_metadata", "-1", output_file]
+        subprocess.run(command, check=True)
+        print(f"Converted {mp3_file} to {output_file}")
+
+    except subprocess.CalledProcessError as e:
+        print(f"An error occurred: {e}")
+    except Exception as e:
+        print(f"An error occurred: {e}")
 
 
-   except subprocess.CalledProcessError as e:
-       print(f"An error occurred: {e}")
-   except Exception as e:
-       print(f"An error occurred: {e}")
+def resize_art(jpg, album_path):
+    print(jpg)
+    image = Image.open(jpg)
+    new_image = image.resize((250, 250))
+    filename = 'current.png'
+    file_path = os.path.join(album_path, filename)
+    new_image.save(file_path, format='png')
+    return file_path
 
 
+def copy_album_to_output(album_path, output_album_path):
+    if not os.path.exists(output_album_path):
+        os.makedirs(output_album_path)  # Create output album folder if it doesn't exist
+        shutil.copytree(album_path, output_album_path, dirs_exist_ok=True)  # Copy album folder
 
 
-def resize_art(jpg):
-   image = Image.open(jpg)
-   new_image = image.resize((250, 250))
-   new_image.save('tryagain.png', format='png')
-   print("test test")
+def process_songs_in_album(album_path):
+
+    for filename in os.listdir(album_path):
+        file_path = os.path.join(album_path, filename)
+        if os.path.isfile(file_path) and filename.lower().endswith('.mp3'):  # Check if it's a file
+            print(file_path)
+            print(album_path)
+            jpg = extract_album_art(file_path, album_path)
+            print(jpg)
+            resized_jpg = resize_art(jpg, album_path)
+            set_album_art(file_path, resized_jpg)
+            os.remove(jpg)
+            os.remove(resized_jpg)
 
 
+def process_albums_in_folder(albums_folder, output_folder):
+        # List all folders in the albums folder
+    for album_name in os.listdir(albums_folder):
+        album_path = os.path.join(albums_folder, album_name)
+        if os.path.isdir(album_path):  # Check if it's a directory
+            output_album_path = os.path.join(output_folder, album_name)
+            copy_album_to_output(album_path, output_album_path)
+            process_songs_in_album(output_album_path)
 
 
 if __name__ == "__main__":
-   output_folder = 'new_folder'
-   mp3_file_path = '03 - Spikes.mp3'  # Replace with your MP3 file path
-   jpg = extract_album_art(mp3_file_path, output_folder)
-   resize_art(jpg)
+   f = FolderSettings()
+   root = Tk()
+   root.title("MP3 Album Art Resizer")
+   root.iconbitmap('MP3.ico')
 
+   input_folder_text = tk.StringVar()
+   output_folder_text = tk.StringVar()
 
-   set_album_art(mp3_file_path, 'tryagain.png')
-   os.remove('tryagain.png')
-   print("test")
+   frm = tk.Frame(root, height=100, borderwidth=100, padx=10, pady=10)
+   frm.grid()
+   tk.Button(frm, text="Select Input Folder", command=f.select_input_folder).grid(column=0, row=1, sticky='W', padx=(5,10))
+   tk.Button(frm, text="Select Output Folder", command=f.select_output_folder).grid(column=0, row=2, sticky='W', pady=(6, 0))
+   tk.Button(frm, text="Convert Files", command=f.run_conversion).grid(column=0, row=3, pady=(6, 0))
 
+   tk.Entry(frm, textvariable=input_folder_text, width=50).grid(column=1, row=1, columnspan=1)
+   tk.Entry(frm, textvariable=output_folder_text, width=50).grid(column=1, row=2, columnspan=1, pady=(6, 0))
 
-
-
-
-
-
-
-
+   root.mainloop()
