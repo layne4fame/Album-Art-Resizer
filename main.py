@@ -11,7 +11,9 @@ import eyed3
 from eyed3.id3.frames import ImageFrame
 from PIL import Image
 from mutagen.flac import FLAC, Picture
-
+from pydub import AudioSegment
+from mutagen.m4a import *
+import ffmpeg
 
 
 class FolderSettings:
@@ -55,6 +57,13 @@ def extract_album_art(mp3_file, output_folder):
        if audio.tags is None:
             print("No ID3 tags found in the file.")
             return
+
+       if audio.tags.version == eyed3.id3.ID3_V2_2:
+           audio.tags.version = eyed3.id3.ID3_V2_3
+           print("so far")
+           audio.save()
+           print("success?")
+
        for tag in audio.tags.values():
             if isinstance(tag, APIC):
 
@@ -78,22 +87,6 @@ def get_ffmpeg_path():
     return os.path.join(script_dir, 'ffmpeg\\bin\\ffmpeg.exe')  # For Windows
 
 
-# Not really a useful function now because of issues with converting an MP3 to AAC with album art meta-data
-# causing really big issues. May work further on it but isn't the ethos of the project
-def convert_mp3_to_aac(mp3_file, output_folder):
-    try:
-        ffmpeg_path = get_ffmpeg_path()  # Get the FFmpeg path
-        output_file = os.path.join(output_folder, f"{os.path.splitext(os.path.basename(mp3_file))[0]}.m4a")
-        command = [ffmpeg_path, "-i", mp3_file, "-map", "0:a", "-c:a", "aac", "-map_metadata", "-1", output_file]
-        subprocess.run(command, check=True)
-        print(f"Converted {mp3_file} to {output_file}")
-
-    except subprocess.CalledProcessError as e:
-        print(f"An error occurred: {e}")
-    except Exception as e:
-        print(f"An error occurred: {e}")
-
-
 def resize_art(jpg, album_path):
     print(jpg)
     image = Image.open(jpg)
@@ -101,6 +94,7 @@ def resize_art(jpg, album_path):
     filename = 'current.png'
     file_path = os.path.join(album_path, filename)
     new_image.save(file_path, format='png')
+    print("why isn't ths working")
     return file_path
 
 
@@ -195,8 +189,32 @@ def process_albums_in_folder(albums_folder, output_folder):
             process_songs_in_album(output_album_path)
 
 
+def attach_image_to_audio_m4a(input_audio, input_image, output_audio):
+    command = [
+        'ffmpeg',
+        '-i', input_audio,
+        '-i', input_image,
+        '-c', 'copy',
+        '-disposition:v', 'attached_pic',
+        output_audio
+    ]
+
+    try:
+        subprocess.run(command, check=True)
+        print(f"Successfully created {output_audio} with album art.")
+    except subprocess.CalledProcessError as e:
+        print(f"An error occurred: {e}")
+
+
+def convert_to_aac(input_file):
+    sound = AudioSegment.from_file(input_file)
+    sound.export("output-file.m4a", format="adts", bitrate="256k")
+
+
 if __name__ == "__main__":
 
+   #attach_image_to_audio("C:\\Users\\jackl\\Music\\correctedandresized\\Discovery\\01 One More Time.m4a", "C:\\Users\\jackl\\PycharmProjects\\AAC File Manager\\OUTPUT\\current.png", "output1.m4a")
+   convert_to_aac("C:\\Users\\jackl\\Music\\Death Grips  - Bottomless Pit (320kbps mp3)\\02 - Hot Head.mp3")
    f = FolderSettings()
    root = Tk()
    root.title("MP3 Album Art Resizer")
