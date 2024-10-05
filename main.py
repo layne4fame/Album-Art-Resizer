@@ -21,6 +21,7 @@ class FolderSettings:
     def __init__(self):
         self.output_folder = ''
         self.input_folder = ''
+        self.flag = False
 
     def select_output_folder(self):
         self.output_folder = filedialog.askdirectory()
@@ -38,7 +39,7 @@ class FolderSettings:
 
         if not os.path.exists(self.output_folder):
             os.makedirs(self.output_folder)
-        process_albums_in_folder(self.input_folder, self.output_folder)
+        process_albums_in_folder(self.input_folder, self.output_folder, self.flag)
 
 
 def set_album_art(mp3_file_path, jpg_file):
@@ -152,6 +153,7 @@ def set_album_art_flac(flac_file, image_file):
     except Exception as e:
         print(f"Error saving album art: {e}")
 
+
 def copy_album_to_output(album_path, output_album_path):
     if not os.path.exists(output_album_path):
         os.makedirs(output_album_path)  # Create output album folder if it doesn't exist
@@ -179,14 +181,43 @@ def process_songs_in_album(album_path):
             os.remove(resized_jpg)
 
 
-def process_albums_in_folder(albums_folder, output_folder):
-        # List all folders in the albums folder
+def run_acc_and_resize(album_path, output_album_path):
+
+    jpg = ""
+    for filename in os.listdir(album_path):
+        file_path = os.path.join(album_path, filename)
+        if os.path.isfile(file_path) and filename.lower().endswith('.mp3'):  # Check if it's a file
+          jpg = extract_album_art(file_path, album_path)
+        elif os.path.isfile(file_path) and filename.lower().endswith('.flac'):
+          jpg = extract_album_art_flac(file_path, album_path)
+
+        if os.path.isfile(file_path) and filename.lower().endswith('.mp3') or filename.lower().endswith('.flac'):
+          output_filename = os.path.splitext(filename)[0] + '.m4a'
+          resized_jpg = resize_art(jpg, album_path)
+          output_file_path = os.path.join(output_album_path, output_filename)
+          output_file_path_no_pic = output_file_path[0] + "nopic"
+          convert_to_aac(file_path, output_file_path_no_pic)
+
+          attach_image_to_audio_m4a(output_file_path_no_pic, resized_jpg, output_file_path)
+
+          os.remove(jpg)
+          os.remove(resized_jpg)
+          os.remove(output_file_path_no_pic)
+
+
+def process_albums_in_folder(albums_folder, output_folder, flag):
+    # List all folders in the albums folder
     for album_name in os.listdir(albums_folder):
         album_path = os.path.join(albums_folder, album_name)
         if os.path.isdir(album_path):  # Check if it's a directory
-            output_album_path = os.path.join(output_folder, album_name)
-            copy_album_to_output(album_path, output_album_path)
-            process_songs_in_album(output_album_path)
+            if flag:
+                output_album_path = os.path.join(output_folder, album_name)
+                os.mkdir(output_album_path)
+                run_acc_and_resize(album_path, output_album_path)
+            else:
+                output_album_path = os.path.join(output_folder, album_name)
+                copy_album_to_output(album_path, output_album_path)
+                process_songs_in_album(output_album_path)
 
 
 def attach_image_to_audio_m4a(input_audio, input_image, output_audio):
@@ -206,16 +237,15 @@ def attach_image_to_audio_m4a(input_audio, input_image, output_audio):
         print(f"An error occurred: {e}")
 
 
-def convert_to_aac(input_file):
+def convert_to_aac(input_file, outputfile):
     sound = AudioSegment.from_file(input_file)
-    sound.export("output-file.m4a", format="adts", bitrate="256k")
+    sound.export(outputfile, format="adts", bitrate="256k")
 
 
 if __name__ == "__main__":
 
-   #attach_image_to_audio("C:\\Users\\jackl\\Music\\correctedandresized\\Discovery\\01 One More Time.m4a", "C:\\Users\\jackl\\PycharmProjects\\AAC File Manager\\OUTPUT\\current.png", "output1.m4a")
-   convert_to_aac("C:\\Users\\jackl\\Music\\Death Grips  - Bottomless Pit (320kbps mp3)\\02 - Hot Head.mp3")
    f = FolderSettings()
+   f.flag = True
    root = Tk()
    root.title("MP3 Album Art Resizer")
    root.iconbitmap('MP3.ico')
