@@ -12,8 +12,8 @@ from eyed3.id3.frames import ImageFrame
 from PIL import Image
 from mutagen.flac import FLAC, Picture
 from pydub import AudioSegment
-from mutagen.m4a import *
-import ffmpeg
+from mutagen.mp4 import MP4
+from mutagen.easyid3 import EasyID3
 
 
 class FolderSettings:
@@ -74,8 +74,6 @@ def extract_album_art(mp3_file, output_folder):
                 im.save(output_file, format='PNG')
                 print(f"Album art saved as: {output_file}")
                 return output_file
-
-        #print("No album art found in the file.")
 
     except ID3NoHeaderError:
        print("The MP3 file does not have ID3 tags.")
@@ -161,7 +159,6 @@ def copy_album_to_output(album_path, output_album_path):
 
 
 def process_songs_in_album(album_path):
-
     for filename in os.listdir(album_path):
         file_path = os.path.join(album_path, filename)
         if os.path.isfile(file_path) and filename.lower().endswith('.mp3'):  # Check if it's a file
@@ -199,6 +196,8 @@ def run_acc_and_resize(album_path, output_album_path):
           convert_to_aac(file_path, output_file_path_no_pic)
 
           attach_image_to_audio_m4a(output_file_path_no_pic, resized_jpg, output_file_path)
+
+          set_aac_to_mp3_metadata(file_path, output_file_path)
 
           os.remove(jpg)
           os.remove(resized_jpg)
@@ -242,10 +241,31 @@ def convert_to_aac(input_file, outputfile):
     sound.export(outputfile, format="adts", bitrate="256k")
 
 
+def set_aac_to_mp3_metadata(mp3, aac):
+
+    audio_aac = EasyID3(aac)
+    audio_mp3 = EasyID3(mp3)
+
+    audio = MP3(mp3)
+
+    print(audio.tags)
+
+    audio_aac["title"] = audio_mp3["title"]
+    audio_aac["artist"] = audio_mp3["artist"]
+    audio_aac["album"] = audio_mp3["album"]
+
+    # Save changes
+    audio_aac.save()
+
+
 if __name__ == "__main__":
 
    f = FolderSettings()
-   f.flag = True
+
+   # Currently, this flag is within the code and not a user option
+   # This is because the conversion fails to capture metadata to order the songs properly
+   f.flag = False
+
    root = Tk()
    root.title("MP3 Album Art Resizer")
    root.iconbitmap('MP3.ico')
