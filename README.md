@@ -24,7 +24,7 @@ This application was created as a free, straightforward solution for resizing al
 
 1. Navigate to the `/dist` folder to find the executable.
 2. Run the application.
-3. Select an input folder containing MP3 or FLAC files.
+3. Select an input folder containing folders of albums with MP3 or FLAC files.
 4. Select an output folder where resized files will be saved.
 5. Start the resizing process.
 
