@@ -32,3 +32,4 @@ This application was created as a free, straightforward solution for resizing al
 
 - Support for MP3 to AAC conversions with proper metadata transfer.
 - Additional format support and advanced customization options.
+- Smoother, more straightforward interface.
