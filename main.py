@@ -10,7 +10,10 @@ from tkinter import filedialog
 import eyed3
 from eyed3.id3.frames import ImageFrame
 from PIL import Image
-
+from mutagen.flac import FLAC, Picture
+from pydub import AudioSegment
+from mutagen.mp4 import MP4
+from mutagen.easyid3 import EasyID3
 
 
 class FolderSettings:
@@ -18,15 +21,16 @@ class FolderSettings:
     def __init__(self):
         self.output_folder = ''
         self.input_folder = ''
+        self.flag = False
 
     def select_output_folder(self):
         self.output_folder = filedialog.askdirectory()
-        input_folder_text.set(self.output_folder)
+        output_folder_text.set(self.output_folder)
         return
 
     def select_input_folder(self):
         self.input_folder = filedialog.askdirectory()
-        output_folder_text.set(self.input_folder)
+        input_folder_text.set(self.input_folder)
         return
 
     def run_conversion(self):
@@ -35,7 +39,7 @@ class FolderSettings:
 
         if not os.path.exists(self.output_folder):
             os.makedirs(self.output_folder)
-        process_albums_in_folder(self.input_folder, self.output_folder)
+        process_albums_in_folder(self.input_folder, self.output_folder, self.flag)
 
 
 def set_album_art(mp3_file_path, jpg_file):
@@ -54,6 +58,13 @@ def extract_album_art(mp3_file, output_folder):
        if audio.tags is None:
             print("No ID3 tags found in the file.")
             return
+
+       if audio.tags.version == eyed3.id3.ID3_V2_2:
+           audio.tags.version = eyed3.id3.ID3_V2_3
+           print("so far")
+           audio.save()
+           print("success?")
+
        for tag in audio.tags.values():
             if isinstance(tag, APIC):
 
@@ -63,8 +74,6 @@ def extract_album_art(mp3_file, output_folder):
                 im.save(output_file, format='PNG')
                 print(f"Album art saved as: {output_file}")
                 return output_file
-
-        #print("No album art found in the file.")
 
     except ID3NoHeaderError:
        print("The MP3 file does not have ID3 tags.")
@@ -77,22 +86,6 @@ def get_ffmpeg_path():
     return os.path.join(script_dir, 'ffmpeg\\bin\\ffmpeg.exe')  # For Windows
 
 
-    # Not really a useful function now because of issues with converting an MP3 to AAC with album art meta-data
-    # causing really big issues. May work further on it but isn't the ethos of the project
-def convert_mp3_to_aac(mp3_file, output_folder):
-    try:
-        ffmpeg_path = get_ffmpeg_path()  # Get the FFmpeg path
-        output_file = os.path.join(output_folder, f"{os.path.splitext(os.path.basename(mp3_file))[0]}.m4a")
-        command = [ffmpeg_path, "-i", mp3_file, "-map", "0:a", "-c:a", "aac", "-map_metadata", "-1", output_file]
-        subprocess.run(command, check=True)
-        print(f"Converted {mp3_file} to {output_file}")
-
-    except subprocess.CalledProcessError as e:
-        print(f"An error occurred: {e}")
-    except Exception as e:
-        print(f"An error occurred: {e}")
-
-
 def resize_art(jpg, album_path):
     print(jpg)
     image = Image.open(jpg)
@@ -100,7 +93,63 @@ def resize_art(jpg, album_path):
     filename = 'current.png'
     file_path = os.path.join(album_path, filename)
     new_image.save(file_path, format='png')
+    print("why isn't ths working")
     return file_path
+
+
+def extract_album_art_flac(flac_path, output_folder):
+    flac = FLAC(flac_path)
+    pics = flac.pictures
+    output_file = os.path.join(output_folder,
+                               f"{os.path.splitext(os.path.basename(flac_path))[0]}_cover.png")
+    for p in pics:
+        if p.type == 3:  # front cover
+            with open(output_file, "wb") as f:
+                f.write(p.data)
+                return output_file
+
+    return "Error: no image found for " + flac_path
+
+
+def set_album_art_flac(flac_file, image_file):
+    """Sets the album art for a FLAC file."""
+
+    # Load the FLAC file
+    try:
+        audio = FLAC(flac_file)
+    except FileNotFoundError:
+        print(f"Error: The file {flac_file} was not found.")
+        return
+    except ID3NoHeaderError:
+        print(f"Error: The file {flac_file} is not a valid FLAC file.")
+        return
+
+    # Read the image file
+    try:
+        with open(image_file, 'rb') as f:
+            image_data = f.read()
+    except FileNotFoundError:
+        print(f"Error: The image file {image_file} was not found.")
+        return
+    except Exception as e:
+        print(f"Error reading image file: {e}")
+        return
+
+    # Create the Picture object
+    picture = Picture()
+    picture.data = image_data
+    picture.mime = 'image/png'  # Change this if the image is not JPEG
+    picture.desc = 'front cover'
+
+    # Add the picture to the audio file
+    audio.add_picture(picture)
+
+    # Save changes to the FLAC file
+    try:
+        audio.save()
+        print(f"Successfully set album art for {flac_file}.")
+    except Exception as e:
+        print(f"Error saving album art: {e}")
 
 
 def copy_album_to_output(album_path, output_album_path):
@@ -110,7 +159,6 @@ def copy_album_to_output(album_path, output_album_path):
 
 
 def process_songs_in_album(album_path):
-
     for filename in os.listdir(album_path):
         file_path = os.path.join(album_path, filename)
         if os.path.isfile(file_path) and filename.lower().endswith('.mp3'):  # Check if it's a file
@@ -122,20 +170,102 @@ def process_songs_in_album(album_path):
             set_album_art(file_path, resized_jpg)
             os.remove(jpg)
             os.remove(resized_jpg)
+        elif os.path.isfile(file_path) and filename.lower().endswith('.flac'):
+            jpg = extract_album_art_flac(file_path, album_path)
+            resized_jpg = resize_art(jpg, album_path)
+            set_album_art_flac(file_path, resized_jpg)
+            os.remove(jpg)
+            os.remove(resized_jpg)
 
 
-def process_albums_in_folder(albums_folder, output_folder):
-        # List all folders in the albums folder
+def run_acc_and_resize(album_path, output_album_path):
+
+    jpg = ""
+    for filename in os.listdir(album_path):
+        file_path = os.path.join(album_path, filename)
+        if os.path.isfile(file_path) and filename.lower().endswith('.mp3'):  # Check if it's a file
+          jpg = extract_album_art(file_path, album_path)
+        elif os.path.isfile(file_path) and filename.lower().endswith('.flac'):
+          jpg = extract_album_art_flac(file_path, album_path)
+
+        if os.path.isfile(file_path) and filename.lower().endswith('.mp3') or filename.lower().endswith('.flac'):
+          output_filename = os.path.splitext(filename)[0] + '.m4a'
+          resized_jpg = resize_art(jpg, album_path)
+          output_file_path = os.path.join(output_album_path, output_filename)
+          output_file_path_no_pic = output_file_path[0] + "nopic"
+          convert_to_aac(file_path, output_file_path_no_pic)
+
+          attach_image_to_audio_m4a(output_file_path_no_pic, resized_jpg, output_file_path)
+
+          set_aac_to_mp3_metadata(file_path, output_file_path)
+
+          os.remove(jpg)
+          os.remove(resized_jpg)
+          os.remove(output_file_path_no_pic)
+
+
+def process_albums_in_folder(albums_folder, output_folder, flag):
+    # List all folders in the albums folder
     for album_name in os.listdir(albums_folder):
         album_path = os.path.join(albums_folder, album_name)
         if os.path.isdir(album_path):  # Check if it's a directory
-            output_album_path = os.path.join(output_folder, album_name)
-            copy_album_to_output(album_path, output_album_path)
-            process_songs_in_album(output_album_path)
+            if flag:
+                output_album_path = os.path.join(output_folder, album_name)
+                os.mkdir(output_album_path)
+                run_acc_and_resize(album_path, output_album_path)
+            else:
+                output_album_path = os.path.join(output_folder, album_name)
+                copy_album_to_output(album_path, output_album_path)
+                process_songs_in_album(output_album_path)
+
+
+def attach_image_to_audio_m4a(input_audio, input_image, output_audio):
+    command = [
+        'ffmpeg',
+        '-i', input_audio,
+        '-i', input_image,
+        '-c', 'copy',
+        '-disposition:v', 'attached_pic',
+        output_audio
+    ]
+
+    try:
+        subprocess.run(command, check=True)
+        print(f"Successfully created {output_audio} with album art.")
+    except subprocess.CalledProcessError as e:
+        print(f"An error occurred: {e}")
+
+
+def convert_to_aac(input_file, outputfile):
+    sound = AudioSegment.from_file(input_file)
+    sound.export(outputfile, format="adts", bitrate="256k")
+
+
+def set_aac_to_mp3_metadata(mp3, aac):
+
+    audio_aac = EasyID3(aac)
+    audio_mp3 = EasyID3(mp3)
+
+    audio = MP3(mp3)
+
+    print(audio.tags)
+
+    audio_aac["title"] = audio_mp3["title"]
+    audio_aac["artist"] = audio_mp3["artist"]
+    audio_aac["album"] = audio_mp3["album"]
+
+    # Save changes
+    audio_aac.save()
 
 
 if __name__ == "__main__":
+
    f = FolderSettings()
+
+   # Currently, this flag is within the code and not a user option
+   # This is because the conversion fails to capture metadata to order the songs properly
+   f.flag = False
+
    root = Tk()
    root.title("MP3 Album Art Resizer")
    root.iconbitmap('MP3.ico')
